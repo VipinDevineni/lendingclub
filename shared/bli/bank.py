@@ -8,6 +8,7 @@ from shared.db.model import *
 from flask import current_app
 from shared.bli.viewmodel.bank_data import *
 from datetime import datetime
+import time
 
 LOGGER = logger.getLogger('shared.bli.bank')
 
@@ -100,15 +101,22 @@ def save_instant_verified_bank(fi, plaid_public_token, account):
     fi.time_created = datetime.now()
     fi.time_updated = datetime.now()
     account.fis.append(fi)
-    LOGGER.info('fetching financial information...')
-    #TODO: should we save the Fi to DB even if the fetch bank info fails? - I think yes,
-    # we can retry the fetch bank info later
-    fetch_financial_information_from_plaid(fi)
-    LOGGER.info('received financial information...')
+    LOGGER.info('Calling Plaid get bank details:%f' % time.time())
+    try:
+        #TODO: should we save the Fi to DB even if the fetch bank info fails? - I think yes,
+        # we can retry the fetch bank info later
+        LOGGER.info('fetching financial information...')
+        fetch_financial_information_from_plaid(fi)
+        LOGGER.info('received financial information...')
+    except Exception as e:
+        LOGGER.error('Error retrieving bank account details from Plaid but continuing with saving Fi info. Error:%s' % e.message)
+
+    LOGGER.info('Finished calling Plaid get bank details:%f' % time.time())
+
     try:
         LOGGER.info('Linking stripe token:%s for stripe customer:%s' % (fi.stripe_bank_account_token, account.stripe_customer_id))
-        current_app.stripe_client.add_customer_bank(account.stripe_customer_id, fi.stripe_bank_account_token)
-        LOGGER.info('Done linking stripe token:%s for stripe customer:%s' % (fi.stripe_bank_account_token, account.stripe_customer_id))
+        source = current_app.stripe_client.add_customer_bank(account.stripe_customer_id, fi.stripe_bank_account_token)
+        fi.stripe_bank_account_token = source.id
         current_app.db_session.add(account)
         current_app.db_session.commit()
     except Exception as e:
