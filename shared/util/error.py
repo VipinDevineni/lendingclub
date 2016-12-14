@@ -96,7 +96,3 @@ class HasInProgressTransactionError(ZipllyError):
 class LoanNotInApprovedStatus(ZipllyError):
     def __init__(self, message=None, orig_exp=None):
         super(LoanNotInApprovedStatus, self).__init__(message=message, orig_exp=orig_exp)
-
-class BankAlreadyAdded(ZipllyError):
-    def __init__(self, message=None, orig_exp=None):
-        super(BankAlreadyAdded, self).__init__(message=message, orig_exp=orig_exp)

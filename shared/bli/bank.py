@@ -92,7 +92,7 @@ def save_instant_verified_bank(fi, plaid_public_token, account):
     if test_fi:
         message = 'Bank account(fi_id:%s) with plaid_account_id:%s already present for account:%s' % (test_fi.id, test_fi.plaid_account_id, account.id)
         LOGGER.error(message)
-        raise error.BankAlreadyAdded(message)
+        raise error.BankAlreadyExistsError(message)
     # get plaid response
     response = json.loads(plaid_exchange_token(plaid_public_token, fi.plaid_account_id))
     fi.status = Fi.VERIFIED
@@ -100,7 +100,6 @@ def save_instant_verified_bank(fi, plaid_public_token, account):
     fi.stripe_bank_account_token = response['stripe_bank_account_token']
     fi.time_created = datetime.now()
     fi.time_updated = datetime.now()
-    account.fis.append(fi)
     LOGGER.info('Calling Plaid get bank details:%f' % time.time())
     try:
         #TODO: should we save the Fi to DB even if the fetch bank info fails? - I think yes,
@@ -117,8 +116,12 @@ def save_instant_verified_bank(fi, plaid_public_token, account):
         LOGGER.info('Linking stripe token:%s for stripe customer:%s' % (fi.stripe_bank_account_token, account.stripe_customer_id))
         source = current_app.stripe_client.add_customer_bank(account.stripe_customer_id, fi.stripe_bank_account_token)
         fi.stripe_bank_account_token = source.id
+        account.fis.append(fi)
         current_app.db_session.add(account)
         current_app.db_session.commit()
+    except error.BankAlreadyExistsError as e:
+        LOGGER.error(e.message)
+        raise e
     except Exception as e:
         LOGGER.error(e.message)
         raise error.DatabaseError(constants.GENERIC_ERROR,e)
@@ -132,8 +135,6 @@ def save_random_deposit_bank(bank, account):
             currency = bank.currency,
             country = bank.country,
             account_holder_name = bank.holder_name)
-    except error.BankAlreadyVerifiedError:
-        LOGGER.info('Bank already verified, continuing to set it as verified in DB.')
     except Exception as e:
         LOGGER.error(e.message)
         raise e
@@ -175,8 +176,7 @@ def verify_random_deposit(bank_deposit, account):
             account.stripe_customer_id,
             fi.stripe_bank_account_token,
             bank_deposit.deposit1, bank_deposit.deposit2)
+        LOGGER.info('Verified bank account, response = %s' % (response))
     except error.BankAlreadyVerifiedError:
         LOGGER.info('Stripe service raised BankAlreadyVerifiedError. Updating DB to mark bank with id:%s as verified.' % (fi.id))
-
-    LOGGER.info('Verified bank account, response = %s' % (response))
     mark_bank_as_verified(fi)

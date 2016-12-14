@@ -64,9 +64,9 @@ class StripeClass(object):
                 self.LOGGER.error('from_function:{0} at_line:{1} type:{2} message:{3} user_id:{4}'.format(
                     stack[1][3],stack[1][2],e.__class__.__name__, e.message, user_id))
                 if e.message == StripeClass.BANK_ALREADY_VERIFIED_MSG:
-                    error.BankAlreadyVerifiedError(e.message, e)
+                    raise error.BankAlreadyVerifiedError(e.message, e)
                 elif e.message == StripeClass.BANK_ALREADY_EXISTS_FOR_CUSTOMER_MSG:
-                    error.BankAlreadyExistsError(e.message, e)
+                    raise error.BankAlreadyExistsError(e.message, e)
                 else:
                     raise error.UserInputError(e.message, e.param, e)
             except stripe.error.CardError as e:

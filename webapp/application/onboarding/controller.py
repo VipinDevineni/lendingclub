@@ -200,7 +200,7 @@ def add_bank():
             response = {}
             response['success'] = True
             return jsonify(response)
-        except error.BankAlreadyAdded as e:
+        except error.BankAlreadyExistsError as e:
             #TODO: this acocunt id could be present for same user or for different user
             # need to think about what messaging shoud be here.
             result['error'] = True
@@ -242,6 +242,9 @@ def add_random_deposit():
             )
             bankBLI.save_random_deposit_bank(bank, current_user)
             return redirect(url_for('.add_bank_random_deposit_success'))
+        except error.BankAlreadyExistsError as e:
+            util.flash_error(constants.BANK_ALREADY_ADDED)
+            return render_template('onboarding/add_random_deposit.html', form = form)
         except error.UserInputError as e:
             util.flash_error(e.message)
             return render_template('onboarding/add_random_deposit.html', form = form)
